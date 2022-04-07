@@ -1,0 +1,37 @@
+version: '3.8'
+
+services:
+  web:
+    build: .
+    command: bash -c 'while !</dev/tcp/db/5432; do sleep 1; done; uvicorn app.main:app --host 0.0.0.0'
+    volumes:
+      - .:/app
+    ports:
+      - 8088:8000
+    environment:
+      - DATABASE_URL=db-url
+
+  db:
+    image: postgres:13-alpine
+    volumes:
+      - postgres_data:/var/lib/postgresql/data/
+    ports:
+      - 127.0.0.1:5432:5432/tcp
+    environment:
+      - POSTGRES_USER=majed
+      - POSTGRES_PASSWORD=majed
+      - POSTGRES_DB=majed
+
+  pgadmin:
+    image: dpage/pgadmin4:6
+    environment:
+      PGADMIN_DEFAULT_EMAIL: "admin@admin.admin"
+      PGADMIN_DEFAULT_PASSWORD: "testpass"
+    volumes:
+      - ./pgadmin_data:/var/lib/pgadmin
+    ports:
+      - 127.0.0.1:1234:80
+
+
+volumes:
+  postgres_data:

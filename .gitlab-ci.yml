@@ -1,0 +1,59 @@
+image: python:3.9
+
+variables:
+   PIP_CACHE_DIR: "$CI_PROJECT_DIR/.cache/pip"
+
+cache:
+  paths:
+    - .cache/pip
+    - venv/
+stages:
+  - code_quality
+  - tests
+  - build
+.some-script-before: &some-script-before
+  - python --version
+  - pip install virtualenv
+  - virtualenv venv
+  - source venv/bin/activate
+  - pip install -r requirements.txt
+
+"Run Flake8":
+  stage: code_quality
+  before_script:
+    - *some-script-before
+  script:
+    - flake8 --ignore=E501,I100,I202   app/
+
+"Run Pylint":
+  stage: code_quality
+  before_script:
+    - *some-script-before
+  script:
+    - pylint --disable=C0301,W0707,R0903,R0901,C0411,C0103,R0913 --max-line-length=200 app
+
+
+"Run unit tests":
+  stage: tests
+  before_script:
+    - *some-script-before
+  script:
+    - pytest --cov app/tests --verbose --junitxml=report.xm
+  coverage: '/TOTAL.*\s+(\d+%)$/'
+  artifacts:
+    when: always
+    reports:
+      junit: report.xml  
+
+
+"Build & push docker image":
+  image: docker:latest
+  stage: build
+  services:
+   - docker:dind
+  script:
+    - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
+    - docker build -t $CI_REGISTRY_IMAGE:$CI_COMMIT_REF_SLUG -t $CI_REGISTRY_IMAGE:latest -t $CI_REGISTRY_IMAGE:$CI_COMMIT_SHA .
+    - docker push $CI_REGISTRY_IMAGE:$CI_COMMIT_SHA
+    - docker push $CI_REGISTRY_IMAGE:$CI_COMMIT_REF_SLUG
+    - docker push $CI_REGISTRY_IMAGE:latest
